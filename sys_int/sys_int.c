@@ -1,25 +1,22 @@
 #include <linux/linkage.h>
 #include <linux/module.h>
-
-struct int_data {
-  int hwirq_number;
-  int irq_number;
-  int count;
-};
-
-static int int_array[4] = {1, 2, 3, 4 };
+#include <linux/irq.h>
 
 asmlinkage long sys_read_int(void) {
   int i = 0;
-  for (i = 0; i < 4; i++) {
-    printk("%d", int_array[i]);
+  for (i = 0; i < 10; i++) {
+    printk("posicao %d:\nirq: %d\thwirq: %d\tcount: %d\n\n",i, int_array[i].irq_number, int_array[i].hwirq_number, int_array[i].count);
   }
-  printk("\n");
   return 0;
 }
 
 static int __init sys_int_init(void) {
-  int_array[0] = 0;
+  int i = 0;
+  for (i = 0; i < 10; i++) {
+    int_array[i].hwirq_number = -1;
+    int_array[i].irq_number = -1;
+    int_array[i].count = 0;
+  }
   return 0;
 }
 

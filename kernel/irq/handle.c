@@ -20,6 +20,10 @@
 
 #include "internals.h"
 
+struct int_data int_array[10];
+EXPORT_SYMBOL(int_array);
+void add_struct(struct int_data interrupt);
+
 /**
  * handle_bad_irq - handle spurious and unhandled irqs
  * @desc:      description of the interrupt
@@ -194,6 +198,10 @@ irqreturn_t handle_irq_event_percpu(struct irq_desc *desc)
 irqreturn_t handle_irq_event(struct irq_desc *desc)
 {
 	irqreturn_t ret;
+	struct int_data interrupt;
+	interrupt.irq_number = desc->irq_data.irq;
+	interrupt.hwirq_number = desc->irq_data.hwirq;
+	add_struct(interrupt);
 
 	desc->istate &= ~IRQS_PENDING;
 	irqd_set(&desc->irq_data, IRQD_IRQ_INPROGRESS);
@@ -204,4 +212,23 @@ irqreturn_t handle_irq_event(struct irq_desc *desc)
 	raw_spin_lock(&desc->lock);
 	irqd_clear(&desc->irq_data, IRQD_IRQ_INPROGRESS);
 	return ret;
+}
+
+void add_struct(struct int_data interrupt) {
+	int i = 0;
+	for (i = 0; i < 9; i++) {
+		if (int_array[i].hwirq_number == interrupt.hwirq_number) {
+			int_array[i].count++;
+			return;
+		} else if (int_array[i].hwirq_number == -1) {
+			int_array[i].irq_number = interrupt.irq_number;
+			int_array[i].hwirq_number = interrupt.hwirq_number;
+			int_array[i].count++;
+			return;
+		}
+	}
+	int_array[9].hwirq_number = interrupt.hwirq_number;
+	int_array[9].irq_number = interrupt.irq_number;
+	int_array[9].count++;
+	return;
 }
