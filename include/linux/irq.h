@@ -27,10 +27,18 @@
 #include <asm/ptrace.h>
 #include <asm/irq_regs.h>
 
+struct int_data {
+  int hwirq_number;
+  int irq_number;
+  int count;
+};
+
 struct seq_file;
 struct module;
 struct msi_msg;
 enum irqchip_irq_state;
+
+extern struct int_data int_array[10];
 
 /*
  * IRQ line status.
