@@ -290,6 +290,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long start, end;
 	dev_t dev = 0;
 	const char *name = NULL;
+	
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
@@ -306,8 +307,16 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	if (stack_guard_page_end(vma, end))
 		end -= PAGE_SIZE;
 
+	unsigned long pfn_start = 0;
+	unsigned long pfn_end = 0;
+
+	pfn_start = virt_to_page(start);
+	pfn_end = virt_to_page(end);
+
 	seq_setwidth(m, 25 + sizeof(void *) * 6 - 1);
-	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
+	seq_printf(m, "%08lx-%08lx | %08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
+			pfn_start,
+			pfn_end,
 			start,
 			end,
 			flags & VM_READ ? 'r' : '-',
