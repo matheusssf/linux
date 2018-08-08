@@ -22,6 +22,14 @@
 #include <asm/tlbflush.h>
 #include "internal.h"
 
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;
@@ -316,7 +324,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long start, end;
 	dev_t dev = 0;
 	const char *name = NULL;
-	
+
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
@@ -333,19 +341,8 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	if (stack_guard_page_end(vma, end))
 		end -= PAGE_SIZE;
 
-	unsigned long pfn_start = 0;
-	unsigned long pfn_end = 0;
-
-	if (mm) {
-		unsigned long vpage;
-		for (vpage = start; vpage < end; vpage += PAGE_SIZE)
-			seq_printf(m, "%08lx-", virt2phys(mm, vpage));
-	}
-	seq_printf(m, "\n");
 	seq_setwidth(m, 25 + sizeof(void *) * 6 - 1);
-	seq_printf(m, "%08lx-%08lx | %08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
-			pfn_start,
-			pfn_end,
+	seq_printf(m, ANSI_COLOR_RED "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
 			start,
 			end,
 			flags & VM_READ ? 'r' : '-',
@@ -393,6 +390,21 @@ done:
 		seq_pad(m, ' ');
 		seq_puts(m, name);
 	}
+	seq_putc(m, '\n');
+
+	unsigned long physical_page_frame;
+
+	seq_printf(m, ANSI_COLOR_BLUE "Virtual memory pages: %lu\n" ANSI_COLOR_RESET, ((start - end) / PAGE_SIZE));
+
+	if (mm) {
+		unsigned long vpage;
+		for (vpage = start; vpage < end; vpage += PAGE_SIZE) {
+			physical_page_frame = virt2phys(mm, vpage);
+			if(physical_page_frame != 0x0)
+				seq_printf(m, "%08lx-", physical_page_frame);
+		}
+	}
+
 	seq_putc(m, '\n');
 }
 
