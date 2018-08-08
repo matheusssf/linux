@@ -278,6 +278,32 @@ static int is_stack(struct proc_maps_private *priv,
 		vma->vm_end >= vma->vm_mm->start_stack;
 }
 
+unsigned long virt2phys(struct mm_struct *mm, unsigned long virt) {
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	struct page *page;
+	unsigned long phys;
+
+	pgd = pgd_offset(mm, virt);
+	if (pgd_none(*pgd) || pgd_bad(*pgd))
+			return 0;
+	pud = pud_offset(pgd, virt);
+	if (pud_none(*pud) || pud_bad(*pud))
+			return 0;
+	pmd = pmd_offset(pud, virt);
+	if (pmd_none(*pmd) || pmd_bad(*pmd))
+			return 0;
+	if (!(pte = pte_offset_map(pmd, virt)))
+			return 0;
+	if (!(page = pte_page(*pte)))
+			return 0;
+	phys = page_to_phys(page);
+	pte_unmap(pte);
+	return phys;
+}
+
 static void
 show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 {
@@ -310,9 +336,12 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long pfn_start = 0;
 	unsigned long pfn_end = 0;
 
-	pfn_start = virt_to_page(start);
-	pfn_end = virt_to_page(end);
-
+	if (mm) {
+		unsigned long vpage;
+		for (vpage = start; vpage < end; vpage += PAGE_SIZE)
+			seq_printf(m, "%08lx-", virt2phys(mm, vpage));
+	}
+	seq_printf(m, "\n");
 	seq_setwidth(m, 25 + sizeof(void *) * 6 - 1);
 	seq_printf(m, "%08lx-%08lx | %08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
 			pfn_start,
