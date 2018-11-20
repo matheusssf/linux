@@ -22,6 +22,14 @@
 #include <asm/tlbflush.h>
 #include "internal.h"
 
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;
@@ -278,6 +286,32 @@ static int is_stack(struct proc_maps_private *priv,
 		vma->vm_end >= vma->vm_mm->start_stack;
 }
 
+unsigned long virt2phys(struct mm_struct *mm, unsigned long virt) {
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	struct page *page;
+	unsigned long phys;
+
+	pgd = pgd_offset(mm, virt);
+	if (pgd_none(*pgd) || pgd_bad(*pgd))
+			return 0;
+	pud = pud_offset(pgd, virt);
+	if (pud_none(*pud) || pud_bad(*pud))
+			return 0;
+	pmd = pmd_offset(pud, virt);
+	if (pmd_none(*pmd) || pmd_bad(*pmd))
+			return 0;
+	if (!(pte = pte_offset_map(pmd, virt)))
+			return 0;
+	if (!(page = pte_page(*pte)))
+			return 0;
+	phys = page_to_phys(page);
+	pte_unmap(pte);
+	return phys;
+}
+
 static void
 show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 {
@@ -290,7 +324,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long start, end;
 	dev_t dev = 0;
 	const char *name = NULL;
-	
+
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
@@ -307,16 +341,8 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	if (stack_guard_page_end(vma, end))
 		end -= PAGE_SIZE;
 
-	unsigned long pfn_start = 0;
-	unsigned long pfn_end = 0;
-
-	pfn_start = virt_to_page(start);
-	pfn_end = virt_to_page(end);
-
 	seq_setwidth(m, 25 + sizeof(void *) * 6 - 1);
-	seq_printf(m, "%08lx-%08lx | %08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
-			pfn_start,
-			pfn_end,
+	seq_printf(m, ANSI_COLOR_RED "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
 			start,
 			end,
 			flags & VM_READ ? 'r' : '-',
@@ -364,6 +390,21 @@ done:
 		seq_pad(m, ' ');
 		seq_puts(m, name);
 	}
+	seq_putc(m, '\n');
+
+	unsigned long physical_page_frame;
+
+	seq_printf(m, ANSI_COLOR_BLUE "Virtual memory pages: %lu\n" ANSI_COLOR_RESET, ((start - end) / PAGE_SIZE));
+
+	if (mm) {
+		unsigned long vpage;
+		for (vpage = start; vpage < end; vpage += PAGE_SIZE) {
+			physical_page_frame = virt2phys(mm, vpage);
+			if(physical_page_frame != 0x0)
+				seq_printf(m, "%08lx-", physical_page_frame);
+		}
+	}
+
 	seq_putc(m, '\n');
 }
 
